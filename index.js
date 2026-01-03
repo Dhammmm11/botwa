@@ -1,5 +1,5 @@
 /*
- * CODINGX INDONET - AI Personal Assistant v2.0
+ * CODINGX INDONET - AI Personal Assistant v2.1 (Fix Pairing)
  * Features: Pairing/QR + Config + Welcome + GroupInfo
  * Author: CodingX Indonet
  */
@@ -11,7 +11,6 @@ const {
     DisconnectReason, 
     fetchLatestBaileysVersion, 
     makeCacheableSignalKeyStore, 
-    PHONENUMBER_MCC,
     delay,
     jidDecode
 } = require('@whiskeysockets/baileys');
@@ -55,11 +54,12 @@ async function startCodingX() {
         const selection = await question("Pilih metode (1/2): ");
 
         if (selection === '2') {
-            let phoneNumber = await question("Masukkan Nomor HP (628xxx): ");
+            let phoneNumber = await question("Masukkan Nomor HP (Wajib 628xxx): ");
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-            if (!Object.keys(PHONENUMBER_MCC).some(v => phoneNumber.startsWith(v))) {
-                console.log("⚠️ Harus diawali kode negara (628...)");
-            }
+            
+            // Masalah Tuan tadi ada disini, sudah saya hapus validasinya.
+            // Langsung eksekusi request code!
+            
             setTimeout(async () => {
                 let code = await sock.requestPairingCode(phoneNumber);
                 code = code?.match(/.{1,4}/g)?.join("-") || code;
@@ -94,38 +94,24 @@ async function startCodingX() {
     // ============================================================
     sock.ev.on('group-participants.update', async (anu) => {
         try {
-            // anu.id = ID Grup
-            // anu.participants = Array ID user yang join/keluar
-            // anu.action = 'add' (join) atau 'remove' (keluar)
-            
             const metadata = await sock.groupMetadata(anu.id);
             const participants = anu.participants;
 
             for (let num of participants) {
-                // Get Profile Picture User (kalau error pakai default)
                 let ppuser;
                 try { 
                     ppuser = await sock.profilePictureUrl(num, 'image');
                 } catch { 
-                    ppuser = 'https://telegra.ph/file/0a0209da029671d24c038.jpg'; // Gambar default
+                    ppuser = 'https://telegra.ph/file/0a0209da029671d24c038.jpg'; 
                 }
 
                 if (anu.action == 'add') {
                     const welcomeText = `Halo @${num.split('@')[0]} 👋\n\nSelamat datang di grup *${metadata.subject}*!\n\nJangan lupa baca deskripsi grup ya. Semoga betah! 💼`;
-                    
-                    await sock.sendMessage(anu.id, { 
-                        image: { url: ppuser }, 
-                        caption: welcomeText, 
-                        mentions: [num] 
-                    });
+                    await sock.sendMessage(anu.id, { image: { url: ppuser }, caption: welcomeText, mentions: [num] });
                 } 
                 else if (anu.action == 'remove') {
                     const goodbyeText = `Sayonara @${num.split('@')[0]} 👋\n\nTerima kasih sudah mampir di *${metadata.subject}*.`;
-                    
-                    await sock.sendMessage(anu.id, { 
-                        text: goodbyeText, 
-                        mentions: [num] 
-                    });
+                    await sock.sendMessage(anu.id, { text: goodbyeText, mentions: [num] });
                 }
             }
         } catch (err) {
@@ -177,47 +163,22 @@ async function startCodingX() {
 
 _Powered by CodingX Indonet_
                         `;
-                        // Kirim gambar + text menu (Bisa diganti url gambar bot Tuan)
-                        await sock.sendMessage(from, { 
-                            image: { url: "https://telegra.ph/file/0a0209da029671d24c038.jpg" }, 
-                            caption: menuText 
-                        }, { quoted: m });
+                        await sock.sendMessage(from, { image: { url: "https://telegra.ph/file/0a0209da029671d24c038.jpg" }, caption: menuText }, { quoted: m });
                         break;
 
                     case 'owner':
-                         // Mengirim kontak owner (vcard)
-                         const vcard = 'BEGIN:VCARD\n' +
-                                       'VERSION:3.0\n' + 
-                                       `FN:${config.ownerName}\n` + // Nama Owner
-                                       `TEL;type=CELL;type=VOICE;waid=${config.ownerNumber}:${config.ownerNumber}\n` + 
-                                       'END:VCARD';
-                         await sock.sendMessage(from, { 
-                            contacts: { displayName: config.ownerName, contacts: [{ vcard }] }
-                         }, { quoted: m });
+                         const vcard = 'BEGIN:VCARD\n' + 'VERSION:3.0\n' + `FN:${config.ownerName}\n` + `TEL;type=CELL;type=VOICE;waid=${config.ownerNumber}:${config.ownerNumber}\n` + 'END:VCARD';
+                         await sock.sendMessage(from, { contacts: { displayName: config.ownerName, contacts: [{ vcard }] } }, { quoted: m });
                          break;
 
                     case 'infogrup':
                     case 'groupinfo':
                         if (!isGroup) return sock.sendMessage(from, { text: config.mess.groupOnly }, { quoted: m });
-                        
                         const groupMetadata = await sock.groupMetadata(from);
                         const groupOwner = groupMetadata.owner || m.sender;
                         const participants = groupMetadata.participants;
-                        const admins = participants.filter(v => v.admin !== null).map(v => v.id);
-                        
-                        let infoText = `📊 *INFO GRUP CODINGX* 📊\n\n`;
-                        infoText += `🏷️ *Nama:* ${groupMetadata.subject}\n`;
-                        infoText += `🆔 *ID:* ${groupMetadata.id}\n`;
-                        infoText += `👑 *Owner:* @${groupOwner.split('@')[0]}\n`;
-                        infoText += `👥 *Member:* ${participants.length} Orang\n`;
-                        infoText += `👮 *Admin:* ${admins.length} Orang\n`;
-                        infoText += `📝 *Deskripsi:*\n${groupMetadata.desc?.toString() || 'Tidak ada deskripsi'}\n`;
-
-                        await sock.sendMessage(from, { 
-                            image: { url: await sock.profilePictureUrl(from, 'image').catch(_ => 'https://telegra.ph/file/0a0209da029671d24c038.jpg') },
-                            caption: infoText,
-                            mentions: [groupOwner]
-                        }, { quoted: m });
+                        let infoText = `📊 *INFO GRUP CODINGX* 📊\n\n🏷️ *Nama:* ${groupMetadata.subject}\n🆔 *ID:* ${groupMetadata.id}\n👑 *Owner:* @${groupOwner.split('@')[0]}\n👥 *Member:* ${participants.length} Orang\n`;
+                        await sock.sendMessage(from, { image: { url: await sock.profilePictureUrl(from, 'image').catch(_ => 'https://telegra.ph/file/0a0209da029671d24c038.jpg') }, caption: infoText, mentions: [groupOwner] }, { quoted: m });
                         break;
 
                     case 'ping':
@@ -226,7 +187,6 @@ _Powered by CodingX Indonet_
 
                     case 'hidetag':
                         if (!isGroup) return sock.sendMessage(from, { text: config.mess.groupOnly }, { quoted: m });
-                        // Cek apakah pengirim adalah admin (Opsional, saat ini dibuka untuk semua)
                         const mems = await sock.groupMetadata(from);
                         await sock.sendMessage(from, { text: text ? text : 'Hidetag!', mentions: mems.participants.map(a => a.id) });
                         break;
@@ -235,19 +195,15 @@ _Powered by CodingX Indonet_
                         if (!isGroup) return sock.sendMessage(from, { text: config.mess.groupOnly }, { quoted: m });
                         const data = await sock.groupMetadata(from);
                         let teks = `💼 *TAG ALL MEMBER* 💼\n\n${text ? 'Pesan: ' + text : ''}\n\n`;
-                        for (let mem of data.participants) {
-                            teks += `➡️ @${mem.id.split('@')[0]}\n`;
-                        }
+                        for (let mem of data.participants) { teks += `➡️ @${mem.id.split('@')[0]}\n`; }
                         await sock.sendMessage(from, { text: teks, mentions: data.participants.map(a => a.id) }, { quoted: m });
                         break;
                 }
             } else {
-                // Auto Reply Sederhana (Bisa dikembangkan ke AI)
                 if (body.toLowerCase() === 'halo') {
                     await sock.sendMessage(from, { text: `Halo juga Tuan! Ketik .menu untuk melihat fitur.` }, { quoted: m });
                 }
             }
-
         } catch (error) {
             console.log(error);
         }
