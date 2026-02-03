@@ -10,7 +10,7 @@ const { downloadVideo } = require('./lib/ytdl.js');
 const { xeoninvisible } = require('./lib/crash.js');
 const { showMenu } = require('./handler/menu.js');
 const { spamMassal } = require('./lib/attack.js');
-
+const { makeQuote } = require('./lib/qc.js');
 let sock = null;
 let rl = null;
 
@@ -242,7 +242,29 @@ async function connectToWhatsApp() {
              const lat = Date.now() - start;
              await sock.sendMessage(chatId, { text: `Pong! ${lat}ms` });
         }
-                // ... command lainnya ...
+             // FITUR QC / QUOTE
+        else if (command === 'qc') {
+            if (!args[0]) return reply(`Ketik pesannya!\nContoh: ${config.botPrefix}qc Halo dunia`);
+            
+            const textQC = args.join(' ');
+            await reply('🎨 Membuat sticker...');
+
+            try {
+                // Panggil fungsi dari lib/qc.js
+                const stickerBuffer = await makeQuote(sock, msg, textQC, pushname, sender);
+                
+                // Kirim sebagai Sticker
+                await sock.sendMessage(chatId, { 
+                    sticker: stickerBuffer 
+                }, { quoted: msg });
+                
+            } catch (err) {
+                console.log(err);
+                await reply(`❌ Gagal: ${err.message}`);
+            }
+        }
+    
+          // ... command lainnya ...
 
         // FITUR PLAY/AUDIO
         else if (command === 'play' || command === 'mp3') {
