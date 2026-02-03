@@ -20,6 +20,10 @@ async function showMenu(sock, sender, pushname) {
   const date = moment().tz('Asia/Jakarta').format('DD/MM/YYYY');
   const uptime = getRuntime(process.uptime());
   
+  // URL Gambar (Ganti link ini dengan foto bot lu sendiri jika mau)
+  // Link ini pakai gambar Dark Frostwolf yang ada di script crash
+  const botImage = 'https://files.catbox.moe/vpi2ef.jpg'; 
+  
   const menuText = `
 ┌  𝐃𝐀𝐑𝐊𝐅𝐑𝐎𝐒𝐓𝐖𝐎𝐋𝐅 𝐔𝐋𝐓𝐈𝐌𝐀𝐓𝐄
 │  👤 User    : ${pushname || 'User'}
@@ -33,6 +37,13 @@ async function showMenu(sock, sender, pushname) {
 │    (Kirim Bug/Crash ke target)
 │  ◦ .spam 628xxx [jumlah] [pesan]
 │    (Spam chat barbar)
+└
+
+┌  [ 🎥 𝐌𝐄𝐃𝐈𝐀 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 ]
+│  ◦ .play [judul/link]
+│    (Download Audio YouTube)
+│  ◦ .video [judul/link]
+│    (Download Video YouTube)
 └
 
 ┌  [ 👥 𝐆𝐑𝐎𝐔𝐏 𝐀𝐃𝐌𝐈𝐍 ]
@@ -71,9 +82,10 @@ Gunakan dengan bijak.
 Bot tidak bertanggung jawab atas risiko banned.
 `;
 
-  // Kirim Menu dengan Fake Forward (biar keren)
+  // Kirim Gambar dengan Caption
   await sock.sendMessage(sender, { 
-      text: menuText,
+      image: { url: botImage },
+      caption: menuText,
       contextInfo: {
           isForwarded: true,
           forwardingScore: 999,
