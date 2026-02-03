@@ -5,7 +5,7 @@ const pino = require('pino');
 const config = require('./config.js');
 const readline = require('readline');
 const chalk = require('chalk');
-
+const { downloadVideo } = require('./lib/ytdl.js');
 // Import functions
 const { xeoninvisible } = require('./lib/crash.js');
 const { showMenu } = require('./handler/menu.js');
@@ -242,7 +242,49 @@ async function connectToWhatsApp() {
              const lat = Date.now() - start;
              await sock.sendMessage(chatId, { text: `Pong! ${lat}ms` });
         }
-        
+                // ... command lainnya ...
+
+        // FITUR PLAY/AUDIO
+        else if (command === 'play' || command === 'mp3') {
+            if (!args[0]) return reply(`Masukkan Link YouTube!\nContoh: ${config.botPrefix}play https://youtu.be/xxx`);
+            
+            await reply('⏳ Sedang memproses audio (YTDL)...');
+            try {
+                // Panggil fungsi dari lib/ytdl.js
+                const resultUrl = await downloadVideo(args[0], 'audio');
+                
+                await sock.sendMessage(chatId, { 
+                    audio: { url: resultUrl }, 
+                    mimetype: 'audio/mp4',
+                    ptt: false // Set true jika ingin dikirim sebagai voice note
+                }, { quoted: msg });
+                
+            } catch (err) {
+                console.log(err);
+                await reply(`❌ Gagal download: ${err.message}`);
+            }
+        }
+
+        // FITUR VIDEO/MP4
+        else if (command === 'video' || command === 'mp4') {
+            if (!args[0]) return reply(`Masukkan Link YouTube!\nContoh: ${config.botPrefix}video https://youtu.be/xxx`);
+            
+            await reply('⏳ Sedang memproses video (YTDL)...');
+            try {
+                // Panggil fungsi dari lib/ytdl.js dengan tipe 'video'
+                const resultUrl = await downloadVideo(args[0], 'video');
+                
+                await sock.sendMessage(chatId, { 
+                    video: { url: resultUrl }, 
+                    caption: '✅ Video berhasil didownload!'
+                }, { quoted: msg });
+                
+            } catch (err) {
+                console.log(err);
+                await reply(`❌ Gagal download: ${err.message}`);
+            }
+        }
+
         // 11. SPAM
         else if (command === 'spam') {
              if (args.length < 3) return reply(`Format: ${config.botPrefix}spam 628xxx 10 P`);
