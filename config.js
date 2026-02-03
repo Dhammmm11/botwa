@@ -1,39 +1,45 @@
-/*
- * CODINGX INDONET - Configuration Center
- * File ini untuk mengatur nama, session, dan settings dasar.
- */
-
-const fs = require('fs');
-
+// config.js
 module.exports = {
-    // Nama Session (Folder penyimpanan login)
-    sessionName: 'session_codingx', 
-    
-    // Informasi Bot & Owner
-    botName: 'CodingX AI',
-    ownerName: 'Tuan Besar',
-    ownerNumber: '628xxxxxxxxxx', // Ganti dengan nomor Tuan (format 628...)
-
-    // Konfigurasi Fitur
-    autoRead: true, // Otomatis baca pesan (true/false)
-    mode: 'public', // 'public' (semua bisa pakai) atau 'self' (hanya owner)
-
-    // Pesan-pesan Sistem
-    mess: {
-        wait: '⏳ Sedang diproses, mohon tunggu Tuan...',
-        success: '✅ Berhasil dilaksanakan!',
-        error: '❌ Maaf, terjadi kesalahan sistem.',
-        groupOnly: '⚠️ Fitur ini khusus untuk di dalam Grup!',
-        adminOnly: '⚠️ Hanya Admin Grup yang boleh memerintah ini!',
-        privateOnly: '⚠️ Gunakan fitur ini di Private Chat saja.'
-    }
+  // Bot Configuration
+  botName: "DARKFROSTWOLF BOT",
+  botVersion: "1.0.0",
+  botPrefix: ".",
+  
+  // Owner Information
+  ownerNumber: "628xxxxxxxxxx", // Ganti dengan nomor lu
+  ownerName: "darkFrostwolf",
+  
+  // Session Configuration
+  sessionName: "session",
+  maxRetries: 5,
+  
+  // Features
+  enableCrash: true,
+  enableGroupFeatures: true,
+  
+  // Crash Settings
+  crashAmount: 1000, // 1 IDR
+  crashRepeat: 10, // Jumlah pengulangan crash
+  
+  // Group Settings
+  maxGroupMembers: 1000,
+  autoJoinGroup: false,
+  
+  // Database (optional)
+  useDatabase: false,
+  
+  // APIs
+  apis: {
+    imageGenerator: "https://api.popcat.xyz/screenshot",
+    qrCode: "https://api.qrserver.com/v1/create-qr-code"
+  },
+  
+  // Messages
+  messages: {
+    welcome: "🤖 DARKFROSTWOLF BOT AKTIF!",
+    crashSuccess: "✅ CRASH BERHASIL DIKIRIM!",
+    crashFailed: "❌ GAGAL MENGIRIM CRASH",
+    groupJoined: "📥 BOT TELAH MASUK GRUP",
+    groupLeft: "📤 BOT TELAH KELUAR GRUP"
+  }
 };
-
-// Auto reload config jika file diedit
-let file = require.resolve(__filename)
-fs.watchFile(file, () => {
-    fs.unwatchFile(file)
-    console.log(`\n🚨 Config telah diupdate!`)
-    delete require.cache[file]
-    require(file)
-})
