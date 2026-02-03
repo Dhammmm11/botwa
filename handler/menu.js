@@ -20,8 +20,7 @@ async function showMenu(sock, sender, pushname) {
   const date = moment().tz('Asia/Jakarta').format('DD/MM/YYYY');
   const uptime = getRuntime(process.uptime());
   
-  // URL Gambar (Ganti link ini dengan foto bot lu sendiri jika mau)
-  // Link ini pakai gambar Dark Frostwolf yang ada di script crash
+  // Gambar Menu BARU (Sesuai Permintaan)
   const botImage = 'https://files.catbox.moe/vpi2ef.jpg'; 
   
   const menuText = `
@@ -39,11 +38,13 @@ async function showMenu(sock, sender, pushname) {
 │    (Spam chat barbar)
 └
 
-┌  [ 🎥 𝐌𝐄𝐃𝐈𝐀 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 ]
+┌  [ 🎥 𝐌𝐄𝐃𝐈𝐀 & 𝐌𝐀𝐊𝐄𝐑 ]
 │  ◦ .play [judul/link]
 │    (Download Audio YouTube)
 │  ◦ .video [judul/link]
 │    (Download Video YouTube)
+│  ◦ .qc [teks]
+│    (Buat Sticker Quote)
 └
 
 ┌  [ 👥 𝐆𝐑𝐎𝐔𝐏 𝐀𝐃𝐌𝐈𝐍 ]
