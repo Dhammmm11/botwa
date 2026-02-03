@@ -112,27 +112,66 @@ async function connectToWhatsApp() {
   });
   
   // **MESSAGE HANDLER UTAMA**
+    // **MESSAGE HANDLER UTAMA (UPDATE SELF-BOT SUPPORT)**
   sock.ev.on('messages.upsert', async (m) => {
     try {
         const msg = m.messages[0];
-        if (!msg.message || msg.key.fromMe) return;
+        // Hapus check 'msg.key.fromMe' agar bisa dipakai di nomor sendiri
+        if (!msg.message) return; 
 
+        // Deteksi tipe pesan
         const text = msg.message.conversation || 
                      msg.message.extendedTextMessage?.text || 
                      msg.message.imageMessage?.caption || '';
         
         if (!text.startsWith(config.botPrefix)) return;
 
-        const sender = msg.key.remoteJid;
+        // **FIX PENDETEKSI PENGIRIM (SENDER)**
+        // Supaya bot tau siapa yang kirim pesan (baik di grup, DM, atau diri sendiri)
+        const isGroup = msg.key.remoteJid.endsWith('@g.us');
+        let sender = isGroup ? (msg.key.participant || msg.key.remoteJid) : msg.key.remoteJid;
+        
+        // Jika pesan dari diri sendiri (fromMe), set sender sebagai bot
+        if (msg.key.fromMe) {
+            sender = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+        }
+
         const senderNumber = sender.replace('@s.whatsapp.net', '');
         const command = text.slice(config.botPrefix.length).trim().split(' ')[0].toLowerCase();
         const args = text.slice(config.botPrefix.length + command.length).trim().split(' ');
         const pushname = msg.pushName || 'User';
-        const isGroup = sender.endsWith('@g.us');
 
         // IDENTIFIKASI USER
         const isOwner = senderNumber === config.ownerNumber;
         const isAllowed = isOwner || checkAccess(senderNumber);
+
+        console.log(chalk.magenta(`📨 Cmd: ${command} | User: ${senderNumber} | Access: ${isAllowed}`));
+
+        // === FITUR KHUSUS OWNER ===
+        // (Copy paste fitur acces/delacces dll dari kode sebelumnya kesini)
+        if (command === 'acces' || command === 'addaccess') {
+             if (!isOwner) return sock.sendMessage(msg.key.remoteJid, { text: '⛔ Lu bukan Owner gw!' }); // Gunakan remoteJid untuk reply
+             // ... logika add access
+             // ... (Pastikan sesuaikan variabel sender untuk reply jika di grup)
+        }
+        
+        // ... LANJUTKAN LOGIKA COMMAND LAINNYA SEPERTI SEBELUMNYA ...
+        // (Pastikan menggunakan msg.key.remoteJid untuk target reply)
+        
+        // CONTOH SHORTCUT REPLY AGAR TIDAK BINGUNG ANTARA SENDER & REMOTEJID
+        const reply = (txt) => sock.sendMessage(msg.key.remoteJid, { text: txt });
+
+        if (command === 'menu') {
+            await showMenu(sock, msg.key.remoteJid, pushname); // Kirim ke remoteJid (Chat room)
+        }
+
+        // ...
+
+    } catch (error) {
+        console.error('Handler Error:', error);
+    }
+  });
+
 
         console.log(chalk.magenta(`📨 Cmd: ${command} | User: ${senderNumber} | Access: ${isAllowed}`));
 
