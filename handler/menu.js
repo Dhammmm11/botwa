@@ -1,6 +1,6 @@
 const moment = require('moment-timezone');
 
-// Fungsi Menghitung Runtime
+// Fungsi Menghitung Runtime (Uptime)
 const getRuntime = (seconds) => {
     seconds = Number(seconds);
     var d = Math.floor(seconds / (3600 * 24));
@@ -15,13 +15,13 @@ const getRuntime = (seconds) => {
 };
 
 async function showMenu(sock, sender, pushname) {
-  // Ambil data waktu
+  // Ambil data waktu & uptime
   const time = moment().tz('Asia/Jakarta').format('HH:mm:ss');
   const date = moment().tz('Asia/Jakarta').format('DD/MM/YYYY');
   const uptime = getRuntime(process.uptime());
   
   const menuText = `
-┌  𝐃𝐀𝐑𝐊𝐅𝐑𝐎𝐒𝐓𝐖𝐎𝐋𝐅 𝐏𝐔𝐁𝐋𝐈𝐂
+┌  𝐃𝐀𝐑𝐊𝐅𝐑𝐎𝐒𝐓𝐖𝐎𝐋𝐅 𝐔𝐋𝐓𝐈𝐌𝐀𝐓𝐄
 │  👤 User    : ${pushname || 'User'}
 │  ⏳ Uptime  : ${uptime}
 │  ⌚ Time    : ${time} WIB
@@ -30,33 +30,48 @@ async function showMenu(sock, sender, pushname) {
 
 ┌  [ ⚔️ 𝐀𝐓𝐓𝐀𝐂𝐊 𝐌𝐄𝐍𝐔 ]
 │  ◦ .crash 628xxx
-│    (Kirim bug/crash ke target)
+│    (Kirim Bug/Crash ke target)
 │  ◦ .spam 628xxx [jumlah] [pesan]
 │    (Spam chat barbar)
 └
 
-┌  [ 👥 𝐆𝐑𝐎𝐔𝐏 𝐌𝐄𝐍𝐔 ]
-│  ◦ .hidetag [pesan]
-│    (Tag semua member grup)
-│  ◦ .tagall
-│    (List semua member)
+┌  [ 👥 𝐆𝐑𝐎𝐔𝐏 𝐀𝐃𝐌𝐈𝐍 ]
 │  ◦ .kick @tag
-│    (Tendang beban grup)
+│    (Tendang member)
+│  ◦ .add 628xxx
+│    (Tambah member)
+│  ◦ .promote @tag
+│    (Jadikan admin)
+│  ◦ .demote @tag
+│    (Hapus admin)
+│  ◦ .linkgroup
+│    (Ambil link grup)
+│  ◦ .infogroup
+│    (Cek info grup)
+└
+
+┌  [ 🔊 𝐓𝐀𝐆 𝐌𝐄𝐍𝐔 ]
+│  ◦ .hidetag [pesan]
+│    (Tag semua member - hidden)
+│  ◦ .tagall
+│    (Tag semua member - list)
 └
 
 ┌  [ ℹ️ 𝐈𝐍𝐅𝐎 𝐁𝐎𝐓 ]
 │  ◦ .owner
-│    (Kontak developer)
+│    (Kontak Pemilik)
+│  ◦ .ping
+│    (Cek Kecepatan)
 │  ◦ .menu
-│    (Tampilkan pesan ini)
+│    (Refresh Menu)
 └
 
 ⚠️ *NOTE:*
-Gunakan bot ini dengan bijak.
-Risiko penggunaan ditanggung sendiri.
+Gunakan dengan bijak.
+Bot tidak bertanggung jawab atas risiko banned.
 `;
 
-  // Kirim Menu
+  // Kirim Menu dengan Fake Forward (biar keren)
   await sock.sendMessage(sender, { 
       text: menuText,
       contextInfo: {
