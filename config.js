@@ -1,33 +1,29 @@
 // config.js
 module.exports = {
-  // Bot Configuration
-  botName: "DARKFROSTWOLF BOT",
-  botVersion: "1.0.0",
-  botPrefix: ".",
-  
-  // Connection Method (CHOOSE ONE)
-  connectionMethod: "pairing", // "pairing" or "qr"
+  // Basic Bot Configuration
+  botName: 'DARKFROSTWOLF BOT',
+  botPrefix: '.',
+  botVersion: '666.0.0',
   
   // Owner Information
-  ownerNumber: "628xxxxxxxxxx", // Ganti dengan nomor lu
-  ownerName: "darkFrostwolf",
+  ownerName: 'darkFrostwolf',
+  ownerNumber: '6285183897520', // Ganti dengan nomor lu
   
-  // Session Configuration
-  sessionName: "session",
-  maxRetries: 5,
+  // Session
+  sessionName: 'session',
   
-  // Features
-  enableCrash: true,
-  enableGroupFeatures: true,
+  // Connection Method: 'qr' atau 'pairing'
+  connectionMethod: 'pairing',
   
   // Crash Settings
-  crashAmount: 1000,
-  crashRepeat: 10,
+  enableCrash: true,
+  crashRepeat: 5,
   
   // Messages
   messages: {
-    welcome: "🤖 DARKFROSTWOLF BOT AKTIF!",
-    crashSuccess: "✅ CRASH BERHASIL DIKIRIM!",
-    crashFailed: "❌ GAGAL MENGIRIM CRASH"
+    welcome: '🚀 DARKFROSTWOLF BOT AKTIF!\n\nSemua fitur siap menghancurkan!',
+    crashSuccess: '✅ XEON CRASH SUCCESS!',
+    crashFailed: '❌ Crash gagal!',
+    groupJoined: '🤖 DARKFROSTWOLF BOT AKTIF!'
   }
 };
