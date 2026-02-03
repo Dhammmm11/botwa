@@ -1,59 +1,62 @@
 const moment = require('moment-timezone');
 
+// Fungsi Menghitung Runtime
+const getRuntime = (seconds) => {
+    seconds = Number(seconds);
+    var d = Math.floor(seconds / (3600 * 24));
+    var h = Math.floor(seconds % (3600 * 24) / 3600);
+    var m = Math.floor(seconds % 3600 / 60);
+    var s = Math.floor(seconds % 60);
+    var dDisplay = d > 0 ? d + (d == 1 ? " day, " : " days, ") : "";
+    var hDisplay = h > 0 ? h + (h == 1 ? " hour, " : " hours, ") : "";
+    var mDisplay = m > 0 ? m + (m == 1 ? " minute, " : " minutes, ") : "";
+    var sDisplay = s > 0 ? s + (s == 1 ? " second" : " seconds") : "";
+    return dDisplay + hDisplay + mDisplay + sDisplay;
+};
+
 async function showMenu(sock, sender, pushname) {
-  // Ambil waktu server
+  // Ambil data waktu
   const time = moment().tz('Asia/Jakarta').format('HH:mm:ss');
   const date = moment().tz('Asia/Jakarta').format('DD/MM/YYYY');
+  const uptime = getRuntime(process.uptime());
   
   const menuText = `
-┌  𝐃𝐀𝐑𝐊𝐅𝐑𝐎𝐒𝐓𝐖𝐎𝐋𝐅 𝐂𝐎𝐍𝐓𝐑𝐎𝐋
-│  User    : ${pushname || 'Unknown'}
-│  Time    : ${time} WIB
-│  Date    : ${date}
-└  Status  : 🟢 Online (Secure)
+┌  𝐃𝐀𝐑𝐊𝐅𝐑𝐎𝐒𝐓𝐖𝐎𝐋𝐅 𝐏𝐔𝐁𝐋𝐈𝐂
+│  👤 User    : ${pushname || 'User'}
+│  ⏳ Uptime  : ${uptime}
+│  ⌚ Time    : ${time} WIB
+│  📅 Date    : ${date}
+└  🟢 Status  : Active
 
-┌  [ 🔐 𝐎𝐖𝐍𝐄𝐑 & 𝐃𝐀𝐓𝐀𝐁𝐀𝐒𝐄 ]
-│  ◦ .acces 628xxx
-│    (Izinkan user menggunakan bot)
-│  ◦ .acces @tag
-│    (Izinkan user via reply/tag)
-│  ◦ .delacces 628xxx
-│    (Hapus akses user)
-│  ◦ .owner
-│    (Kontak pemilik bot)
-└
-
-┌  [ ⚔️ 𝐀𝐓𝐓𝐀𝐂𝐊 𝐒𝐔𝐈𝐓𝐄 ]
-│  ◦ .crash 628xxx [jumlah]
-│    (Kirim serangan invisible)
+┌  [ ⚔️ 𝐀𝐓𝐓𝐀𝐂𝐊 𝐌𝐄𝐍𝐔 ]
+│  ◦ .crash 628xxx
+│    (Kirim bug/crash ke target)
 │  ◦ .spam 628xxx [jumlah] [pesan]
-│    (Spam pesan massal)
-│  ◦ .blast [pesan]
-│    (Kirim pesan ke semua kontak chat)
+│    (Spam chat barbar)
 └
 
-┌  [ 👥 𝐆𝐑𝐎𝐔𝐏 𝐌𝐀𝐍𝐀𝐆𝐄𝐑 ]
-│  ◦ .kick @tag
-│    (Keluarkan member)
+┌  [ 👥 𝐆𝐑𝐎𝐔𝐏 𝐌𝐄𝐍𝐔 ]
 │  ◦ .hidetag [pesan]
-│    (Tag semua member secara hidden)
+│    (Tag semua member grup)
 │  ◦ .tagall
-│    (Tag semua member visible)
-│  ◦ .group open/close
-│    (Buka/tutup grup)
+│    (List semua member)
+│  ◦ .kick @tag
+│    (Tendang beban grup)
 └
 
-┌  [ ⚙️ 𝐒𝐘𝐒𝐓𝐄𝐌 ]
+┌  [ ℹ️ 𝐈𝐍𝐅𝐎 𝐁𝐎𝐓 ]
+│  ◦ .owner
+│    (Kontak developer)
 │  ◦ .menu
-│  ◦ .ping
+│    (Tampilkan pesan ini)
 └
 
-⚠️ *SYSTEM NOTE:*
-Gunakan fitur attack dengan bijak. 
-Bot dilindungi sistem whitelist database.
+⚠️ *NOTE:*
+Gunakan bot ini dengan bijak.
+Risiko penggunaan ditanggung sendiri.
 `;
 
-  // Kirim dengan sedikit variasi agar terlihat seperti reply
+  // Kirim Menu
   await sock.sendMessage(sender, { 
       text: menuText,
       contextInfo: {
@@ -61,7 +64,7 @@ Bot dilindungi sistem whitelist database.
           forwardingScore: 999,
           forwardedNewsletterMessageInfo: {
               newsletterJid: '120363144038483540@newsletter',
-              newsletterName: 'DarkFrostwolf System',
+              newsletterName: `Runtime: ${uptime}`,
               serverMessageId: -1
           }
       } 
