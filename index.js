@@ -7,7 +7,17 @@ const config = require('./config.js');
 // Import functions
 const { xeoninvisible } = require('./lib/crash.js');
 const { showMenu } = require('./handler/menu.js');
+// TAMBAHKAN DI BAWAH IMPORTS
+const { xeoninvisible } = await `${fol[0]}crash.js`.r();
+const { spamMassal, blastPMMassal, crashGroup } = await `${fol[0]}attack.js`.r();
 
+// TAMBAHKAN SETELAH EXP DIBUAT
+Exp.xeonAttack = {
+  crash: xeoninvisible,
+  spam: spamMassal,
+  blast: blastPMMassal,
+  groupCrash: crashGroup
+};
 let sock = null;
 
 async function connectToWhatsApp() {
