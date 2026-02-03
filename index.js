@@ -112,7 +112,12 @@ async function connectToWhatsApp() {
             senderJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         }
 
-        const senderNumber = senderJid.replace(/\D/g, '');
+        // --- FIX DEVICE ID HERE ---
+        // Kita membuang bagian ':2' atau ':3' sebelum mengambil nomor
+        // Dan membuang bagian '@s.whatsapp.net'
+        const senderNumber = senderJid.split('@')[0].split(':')[0].replace(/\D/g, '');
+        // --------------------------
+
         const command = text.slice(config.botPrefix.length).trim().split(' ')[0].toLowerCase();
         const args = text.slice(config.botPrefix.length + command.length).trim().split(' ');
         const pushname = msg.pushName || 'User';
@@ -130,7 +135,8 @@ async function connectToWhatsApp() {
             
             let target;
             if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {
-                target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0].replace(/\D/g, '');
+                // Fix juga untuk target yang di-tag (buang device id)
+                target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0].split('@')[0].split(':')[0].replace(/\D/g, '');
             } else if (args[0]) {
                 target = args[0].replace(/\D/g, '');
             } else {
@@ -146,7 +152,7 @@ async function connectToWhatsApp() {
             
             let target;
             if (msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.length > 0) {
-                target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0].replace(/\D/g, '');
+                target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0].split('@')[0].split(':')[0].replace(/\D/g, '');
             } else if (args[0]) {
                 target = args[0].replace(/\D/g, '');
             }
