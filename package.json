@@ -3,7 +3,6 @@
   "version": "666.0.0",
   "description": "DarkFrostwolf Crash Bot - Ultimate WhatsApp Destroyer",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index",
     "crash": "node --no-warnings index",
