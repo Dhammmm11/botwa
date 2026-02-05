@@ -1,4 +1,4 @@
-// index.js - FINAL ULTIMATE
+// index.js - FIXED BROWSER ERROR
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers, delay } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const pino = require('pino');
@@ -11,7 +11,7 @@ const { downloadVideo } = require('./lib/ytdl.js');
 const { makeQuote } = require('./lib/qc.js');
 const { xeoninvisible } = require('./lib/crash.js');
 const { showMenu } = require('./handler/menu.js');
-const { spamMassal, crashPair } = require('./lib/attack.js'); // Import crashPair
+const { spamMassal, crashPair } = require('./lib/attack.js'); 
 
 let sock = null;
 let rl = null;
@@ -31,7 +31,9 @@ async function connectToWhatsApp() {
   const socketConfig = {
     auth: state,
     logger: pino({ level: 'silent' }),
-    browser: Browsers.ubuntu('Chrome'),
+    // --- PERBAIKAN DI SINI ---
+    browser: ["Ubuntu", "Chrome", "20.0.04"], 
+    // ------------------------
     markOnlineOnConnect: true,
     printQRInTerminal: false,
   };
@@ -56,7 +58,7 @@ async function connectToWhatsApp() {
     const { connection, lastDisconnect, qr } = update;
     if (qr && config.connectionMethod === 'qr') qrcode.generate(qr, { small: true });
     
-    if (connection === 'open') console.log(chalk.green('\n✅ BOT SIAP! (Fix YTDL & New Crash)'));
+    if (connection === 'open') console.log(chalk.green('\n✅ BOT SIAP! (Fix Browser Error)'));
     
     if (connection === 'close') {
       const reason = lastDisconnect.error?.output?.statusCode;
@@ -97,7 +99,7 @@ async function connectToWhatsApp() {
             await showMenu(sock, chatId, pushname);
         }
 
-        // 1. PLAY / AUDIO (FIX BUFFER)
+        // 1. PLAY / AUDIO
         else if (command === 'play' || command === 'mp3') {
             if (!args[0]) return reply(`Masukkan Link!\nContoh: ${config.botPrefix}play https://youtu.be/xxx`);
             await reply('⏳ Downloading Audio (Buffer)...');
@@ -113,7 +115,7 @@ async function connectToWhatsApp() {
             }
         }
 
-        // 2. VIDEO / MP4 (FIX BUFFER)
+        // 2. VIDEO / MP4
         else if (command === 'video' || command === 'mp4') {
             if (!args[0]) return reply(`Masukkan Link!\nContoh: ${config.botPrefix}video https://youtu.be/xxx`);
             await reply('⏳ Downloading Video (Buffer)...');
@@ -128,13 +130,13 @@ async function connectToWhatsApp() {
             }
         }
 
-        // 3. CRASH PAIRING (NEW)
+        // 3. CRASH PAIRING
         else if (command === 'crashpair' || command === 'cp') {
             if (!args[0]) return reply(`Format: ${config.botPrefix}cp 628xxx`);
             const target = args[0].replace(/\D/g, '');
             
             await reply(`☠️ Mengirim Pairing Crash ke ${target}...`);
-            await crashPair(target); // Panggil fungsi baru
+            await crashPair(target);
             await reply(`✅ Attack Finished.`);
         }
 
@@ -167,12 +169,9 @@ async function connectToWhatsApp() {
             await sock.sendMessage(chatId, { contacts: { displayName: config.ownerName, contacts: [{ vcard }] } });
         }
 
-        // FITUR GRUP (Full)
-        // ... (Kode grup sama seperti sebelumnya, dipersingkat di sini agar muat)
+        // FITUR GRUP
         else if (['kick', 'add', 'promote', 'demote', 'tagall', 'hidetag'].includes(command)) {
              if (!isGroup) return reply('Khusus grup!');
-             // ... logic admin grup (sudah ada di code sebelumnya)
-             // Jika butuh copy-paste logic grup lagi bilang aja
              reply('Fitur grup aktif.'); 
         }
 
