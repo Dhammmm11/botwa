@@ -30,7 +30,7 @@ async function showMenu(sock, sender, pushname) {
 │  ◦ .crash 628xxx
 │    (Crash via Bug Message)
 │  ◦ .spam 628xxx [jumlah] [pesan]
-│    (Spam Chat)
+│  ◦ .crashinvis 628xxx
 └
 
 ┌  [ 🎥 𝐌𝐄𝐃𝐈𝐀 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 ]
