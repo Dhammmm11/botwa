@@ -12,7 +12,7 @@ const { makeQuote } = require('./lib/qc.js');
 const { xeoninvisible } = require('./lib/crash.js');
 const { showMenu } = require('./handler/menu.js');
 const { spamMassal, crashPair } = require('./lib/attack.js'); 
-
+const { invisSpam } = require('./lib/fcinvis.js'); // Import invisSpam dari
 let sock = null;
 let rl = null;
 
