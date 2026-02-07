@@ -7,7 +7,7 @@ module.exports = {
   
   // Owner Information
   ownerName: 'darkFrostwolf',
-  ownerNumber: '6285183897520', // Ganti dengan nomor lu
+  ownerNumber: '628xxx', // Ganti dengan nomor lu
   
   // Session
   sessionName: 'session',
